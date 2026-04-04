@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futuro del Club Cuenca de Tenis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #d4f01e;
+            --primary: #0a213d;
+            --bg-light: #f8fafc;
+            --text-main: #0f172a;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-main);
+            scroll-behavior: smooth;
+        }
+
+        .font-serif { font-family: 'Playfair Display', serif; }
+
+        /* Slider Antes/Después - Optimizado */
+        .comparison-slider {
+            position: relative;
+            width: 100%;
+            height: 550px;
+            overflow: hidden;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            background: #cbd5e1;
+            touch-action: none; 
+        }
+
+        .comparison-slider img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0; left: 0;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .image-after {
+            z-index: 2;
+            clip-path: inset(0 0 0 50%);
+            transition: clip-path 0.1s ease-out;
+        }
+
+        .slider-handle {
+            position: absolute;
+            top: 0; bottom: 0; left: 50%;
+            width: 4px;
+            background: var(--accent);
+            z-index: 3;
+            cursor: ew-resize;
+            transform: translateX(-50%);
+            transition: left 0.1s ease-out;
+        }
+
+        .slider-handle::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 44px; height: 44px;
+            background: var(--primary);
+            border: 3px solid var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23d4f01e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 8 4 4-4 4'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='m6 8-4 4 4 4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: center; background-size: 18px;
+        }
+
+        /* Galerías */
+        .details-row {
+            display: flex;
+            overflow-x: auto;
+            gap: 1.25rem;
+            padding: 2rem 0;
+            scrollbar-width: none;
+        }
+        .details-row::-webkit-scrollbar { display: none; }
+
+        .detail-card {
+            flex: 0 0 280px;
+            height: 180px;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .detail-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        .detail-card img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Modal Lightbox */
+        #lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 33, 61, 0.98);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        #lightbox.active { display: flex; }
+        .modal-img {
+            max-width: 90vw; max-height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+        }
+
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s ease-out; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        .bg-grid {
+            background-image: radial-gradient(rgba(10, 33, 61, 0.04) 1.5px, transparent 1.5px);
+            background-size: 40px 40px;
+        }
+
+        /* Panel de diagnóstico */
+        #debug-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 11px;
+            z-index: 999;
+            max-width: 300px;
+            display: none;
+            border: 1px solid #f87171;
+        }
+    </style>
+</head>
+<body class="bg-grid">
+
+    <div id="debug-panel">
+        <strong>⚠️ Errores detectados:</strong>
+        <ul id="error-list" class="mt-2 list-disc ml-4"></ul>
+    </div>
+
+    <!-- Navegación -->
+    <nav class="fixed w-full z-50 px-8 py-5 flex justify-between items-center bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 bg-[var(--primary)] flex items-center justify-center font-black text-[var(--accent)] rounded-md shadow-lg shadow-blue-900/20">C</div>
+            <span class="text-2xl font-bold tracking-[0.1em] uppercase text-[var(--primary)]">cidelara</span>
+        </div>
+        <div class="hidden md:flex space-x-10 text-[11px] font-extrabold uppercase tracking-[0.25em]">
+            <a href="#inicio" class="text-slate-500 hover:text-[var(--primary)] transition-all">Inicio</a>
+            <a href="#espacios-container" class="text-slate-500 hover:text-[var(--primary)] transition-all">El Proyecto</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section id="inicio" class="h-[55vh] flex items-center justify-center text-center px-6 pt-24 bg-gradient-to-b from-white to-slate-50">
+        <div class="max-w-4xl">
+            <span class="text-[var(--primary)] font-bold tracking-[0.5em] uppercase text-xs mb-5 block reveal">Futuro del Club Cuenca de Tenis</span>
+            <h1 class="text-6xl md:text-8xl font-serif mb-8 reveal italic text-[var(--primary)] leading-tight">La nueva era <br>del CCT.</h1>
+            <p class="text-slate-500 text-xl max-w-2xl mx-auto font-light reveal delay-100">Transformación estratégica de espacios y servicios Cidelara.</p>
+        </div>
+    </section>
+
+    <!-- Espacios -->
+    <main id="espacios-container" class="max-w-6xl mx-auto px-6 pb-48">
+        <!-- Render dinámico aquí -->
+    </main>
+
+    <!-- Lightbox -->
+    <div id="lightbox" onclick="closeLightbox()">
+        <button class="absolute top-10 right-10 text-white text-5xl font-light hover:text-[var(--accent)]">&times;</button>
+        <div class="relative px-4" onclick="event.stopPropagation()">
+            <img src="" alt="Vista completa" class="modal-img" id="lightbox-img">
+            <div id="lightbox-caption" class="mt-6 text-center text-[var(--accent)] font-bold tracking-widest uppercase text-sm"></div>
+            
+            <button class="absolute -left-12 md:-left-24 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-7xl hidden md:block" onclick="changeImage(-1)">&#8249;</button>
+            <button class="absolute -right-12 md:-right-24 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-7xl hidden md:block" onclick="changeImage(1)">&#8250;</button>
+        </div>
+    </div>
+
+    <footer class="py-24 bg-white text-center border-t border-slate-100">
+        <div class="flex flex-col items-center">
+            <div class="w-12 h-12 bg-[var(--primary)] flex items-center justify-center font-black text-[var(--accent)] rounded-lg mb-6">C</div>
+            <span class="text-4xl font-bold tracking-[0.4em] uppercase text-[var(--primary)] mb-4">cidelara</span>
+            <p class="text-slate-400 text-sm italic font-light tracking-widest">PROYECTO DE TRANSFORMACIÓN 2024</p>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * MANUAL DE AYUDA RÁPIDA:
+         * 1. Verifica que el archivo se llame exactamente igual (incluyendo .jpg o .JPG).
+         * 2. Si las fotos están en subcarpetas, la ruta debe ser 'Carpeta/foto.jpg'.
+         * 3. No uses espacios en los nombres de los archivos si es posible (ej: usa 'foto_antes.jpg').
+         */
+        
+        const BASE_PATH = './'; // './' ayuda a algunos navegadores a entender que es local
+
+        const ESPACIOS_CONFIG = [
+            {
+                id: "01",
+                titulo: "Recepción",
+                descripcion: "Punto de encuentro moderno y acogedor.",
+                fotoAntes: "recepcion/recepcion_antes.png", 
+                fotoDespues: "recepcion/recepcion_despues.png",
+                galeria: [  "recepcion/recepcion_colage.png",
+                            "recepcion/recepcion1_0001.jpg",
+                            "recepcion/recepcion3_0003.jpg",
+                            "recepcion/recepcion4_0004.jpg",
+                            "recepcion/recepcion5_0005.jpg",
+                            "recepcion/recepcion6_0006.jpg",
+                            "recepcion/recepcion7_0007.jpg",
+                            "recepcion/recepcion8_0008.jpg",
+                            "recepcion/recepcion9_0009.jpg"
+                            ]
+            },
+            {
+                id: "02",
+                titulo: "Sala de Yoga & Pilates",
+                descripcion: "Ambiente zen diseñado para el bienestar absoluto.",
+                // Verificamos la ruta de la carpeta Yoga
+                fotoAntes: "yoga/yoga_antes.png", 
+                fotoDespues: "yoga/yoga_despues.png",
+                galeria: [  "yoga/yoga_colage.png",
+                            "yoga/yoga2.jpg",
+                            "yoga/yoga3.jpg",
+                            "yoga/yoga4.jpg",
+                            "yoga/yoga5.jpg",
+                            "yoga/yoga6.jpg",
+                            "yoga/yoga7.jpg",
+                            "yoga/yoga8.png"
+                            ]
+            },
+            {
+                id: "03",
+                titulo: "Ludoteca",
+                descripcion: "Espacio creativo y seguro para los más pequeños.",
+                fotoAntes: "ludoteca/ludoteca_antes.png",
+                fotoDespues: "ludoteca/ludoteca_despues.png",
+                galeria: [  "ludoteca/ludoteca_colage.png",
+                            "ludoteca/ludoteca1.jpg",
+                            "ludoteca/ludoteca2.jpg",
+                            "ludoteca/ludoteca4.jpg",
+                            "ludoteca/ludoteca5.jpg",
+                            "ludoteca/ludoteca6.jpg",
+                            "ludoteca/ludoteca7.jpg",
+                            "ludoteca/ludoteca8.jpg",
+                            "ludoteca/ludoteca9.jpg"
+                            ]
+            },
+            {
+                id: "04",
+                titulo: "Gimnasio",
+                descripcion: "Entrenamiento de alto rendimiento.",
+                fotoAntes: "gimnasio/gimnasio_antes.png",
+                fotoDespues: "gimnasio/gimnasio_despues.jpg",
+                galeria: [  "gimnasio/gimnasio_colage.png",
+                            "gimnasio/gimnasio1.png",
+                            "gimnasio/gimnasio3.jpg",
+                            "gimnasio/gimnasio4.jpg",
+                            "gimnasio/gimnasio5.jpg",
+                            "gimnasio/gimnasio6.jpg",
+                            "gimnasio/gimnasio7.jpg",
+                            "gimnasio/gimnasio8.jpg",
+                            "gimnasio/gimnasio10.jpg",
+                            "gimnasio/gimnasio11.jpg",
+                            "gimnasio/gimnasio12.jpg"
+                            ]
+            },
+            {
+                id: "05",
+                titulo: "Pista de Tenis 2",
+                descripcion: "Superficies de competición renovadas.",
+                fotoAntes: "pista2/pista2_antes.png",
+                fotoDespues: "pista2/pista2_despues.jpeg",
+                galeria: [  "pista2/pista2_colage.png",
+                            "pista2/pista2_1.jpg",
+                            "pista2/pista2_2.jpg",
+                            "pista2/pista2_3.jpg",
+                            "pista2/pista2_4.jpg",
+                            "pista2/pista2_5.jpg",
+                            "pista2/pista2_6.jpg",
+                            "pista2/pista2_7.png"
+                            ]
+            },
+            {
+                id: "06",
+                titulo: "Pistas de Pádel",
+                descripcion: "Cerramientos panorámicos y nuevo césped.",
+                fotoAntes: "padel/padel_antes.png",
+                fotoDespues: "padel/padel_despues.jpeg",
+                galeria: [  "padel/padel_colage.png",
+                            "padel/padel1.jpg",
+                            "padel/padel2.jpg",
+                            "padel/padel3.png",
+                            "padel/padel4.jpg",
+                            "padel/padel5.jpeg",
+                            "padel/padel6.jpeg",
+                            "padel/padel7.jpg",
+                            "padel/padel8.jpg",
+                            "padel/padel9.jpg",
+                            "padel/padel10.jpg",
+                            "padel/padel12.jpg"
+                            ]
+            }
+        ];
+
+        const container = document.getElementById('espacios-container');
+        let fullGallery = []; 
+        let currentImgIndex = 0;
+
+        function render() {
+            if (!ESPACIOS_CONFIG || ESPACIOS_CONFIG.length === 0) {
+                logError("La configuración de espacios está vacía.");
+                return;
+            }
+
+            ESPACIOS_CONFIG.forEach((espacio, idx) => {
+                const section = document.createElement('section');
+                section.className = 'mb-44 reveal';
+                const isEven = idx % 2 !== 0;
+
+                section.innerHTML = `
+                    <div class="mb-12 ${isEven ? 'text-right' : 'text-left'}">
+                        <h2 class="text-4xl md:text-5xl font-serif italic mb-3 text-[var(--primary)]">${espacio.id}. ${espacio.titulo}</h2>
+                        <p class="text-slate-500 text-lg max-w-xl ${isEven ? 'ml-auto' : ''}">${espacio.descripcion}</p>
+                    </div>
+                    
+                    <div class="comparison-slider">
+                        <img src="${BASE_PATH}${espacio.fotoAntes}" 
+                             onerror="handleError(this, '${espacio.fotoAntes}')">
+                        <img src="${BASE_PATH}${espacio.fotoDespues}" class="image-after" 
+                             onerror="handleError(this, '${espacio.fotoDespues}')">
+                        <div class="slider-handle"></div>
+                        <div class="absolute bottom-6 left-6 bg-white/95 px-4 py-2 text-[10px] uppercase font-black border border-slate-200 text-slate-500 z-10 rounded shadow-sm">Antes</div>
+                        <div class="absolute bottom-6 right-6 bg-[var(--primary)] px-4 py-2 text-[10px] uppercase font-black border border-[var(--accent)] text-white z-10 rounded shadow-sm">Después</div>
+                    </div>
+
+                    <div class="details-row">
+                        ${espacio.galeria.map(img => `
+                            <div class="detail-card" onclick="openLightbox('${BASE_PATH}${img}', '${espacio.titulo}')">
+                                <img src="${BASE_PATH}${img}" onerror="handleError(this, '${img}')">
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(section);
+                espacio.galeria.forEach(img => fullGallery.push({src: BASE_PATH + img, title: espacio.titulo}));
+            });
+
+            initSliders();
+        }
+
+        function handleError(img, filename) {
+            logError("No se encontró: " + filename);
+            const parent = img.parentElement;
+            img.style.display = 'none';
+            const errorMsg = document.createElement('div');
+            errorMsg.className = "flex items-center justify-center h-full w-full bg-slate-200 text-slate-400 text-[10px] p-4 text-center border border-dashed border-slate-300";
+            errorMsg.innerHTML = `<div><span class="font-bold block">ERROR DE CARGA</span><code class="text-[9px]">${filename}</code></div>`;
+            parent.appendChild(errorMsg);
+        }
+
+        function logError(msg) {
+            const panel = document.getElementById('debug-panel');
+            const list = document.getElementById('error-list');
+            panel.style.display = 'block';
+            const li = document.createElement('li');
+            li.textContent = msg;
+            list.appendChild(li);
+        }
+
+        function initSliders() {
+            document.querySelectorAll('.comparison-slider').forEach(slider => {
+                const move = (e) => {
+                    const rect = slider.getBoundingClientRect();
+                    const pageX = e.pageX || (e.touches ? e.touches[0].pageX : 0);
+                    let x = pageX - rect.left;
+                    let pos = (x / rect.width) * 100;
+                    if (pos < 0) pos = 0; if (pos > 100) pos = 100;
+                    
+                    const imgAfter = slider.querySelector('.image-after');
+                    const handle = slider.querySelector('.slider-handle');
+                    if(imgAfter) imgAfter.style.clipPath = `inset(0 0 0 ${pos}%)`;
+                    if(handle) handle.style.left = `${pos}%`;
+                };
+
+                slider.addEventListener('mousemove', move);
+                slider.addEventListener('touchmove', (e) => { move(e); }, {passive: true});
+            });
+        }
+
+        function openLightbox(src, title) {
+            const img = document.getElementById('lightbox-img');
+            img.src = src;
+            document.getElementById('lightbox-caption').innerText = title;
+            currentImgIndex = fullGallery.findIndex(i => i.src === src);
+            document.getElementById('lightbox').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        function changeImage(dir) {
+            currentImgIndex = (currentImgIndex + dir + fullGallery.length) % fullGallery.length;
+            const item = fullGallery[currentImgIndex];
+            document.getElementById('lightbox-img').src = item.src;
+            document.getElementById('lightbox-caption').innerText = item.title;
+        }
+
+        window.onload = () => {
+            try {
+                render();
+                const obs = new IntersectionObserver((es) => es.forEach(e => e.isIntersecting && e.target.classList.add('active')), {threshold: 0.1});
+                document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+            } catch (e) {
+                logError("Error de ejecución JS: " + e.message);
+            }
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (!document.getElementById('lightbox').classList.contains('active')) return;
+            if (e.key === 'ArrowLeft') changeImage(-1);
+            if (e.key === 'ArrowRight') changeImage(1);
+            if (e.key === 'Escape') closeLightbox();
+        });
+    </script>
+</body>
+</html>
